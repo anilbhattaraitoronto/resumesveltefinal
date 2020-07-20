@@ -1,0 +1,10 @@
+secrets.js
+resumedb.sqlite
+sessions
+/node_modules/
+/client/node_modules/
+/client/public/build/
+
+.DS_Store
+node_modules
+
