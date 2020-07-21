@@ -18,9 +18,14 @@ app.use(session({
   resave: false,
 }));
 
+//import routes
+
+const userRoutes = require("./routes/userRoutes");
 app.get("/", (req, res) => {
   res.send("Hello world");
 });
+
+app.use("/api/users", userRoutes);
 
 app.listen(port, () => {
   console.log(`App is running on ${port}`);
