@@ -89,6 +89,7 @@ exports.login = (req, res) => {
           if (result === true) {
             req.session.isLoggedIn = true;
             req.session.email = email;
+            req.session.is_admin = user.is_admin;
             DB.close();
             res.status(200).json(
               { message: `Welcome, ${email}. You are now logged in.` },
