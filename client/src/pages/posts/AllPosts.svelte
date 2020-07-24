@@ -1,9 +1,37 @@
 <script>
+  import axios from "axios";
+  import { user } from "../../stores/userStore.js";
   import { fade, slide, scale } from "svelte/transition";
   import { flip } from "svelte/animate";
   import { createEventDispatcher } from "svelte";
   const dispatch = createEventDispatcher();
-  import { posts } from "../stores/postStore.js";
+  import {
+    posts,
+    projects,
+    skills,
+    education,
+    blogs
+  } from "../../stores/postStore.js";
+
+  //delete post
+
+  const deletePost = async id => {
+    if ($user && $user.adminStatus === 1) {
+      const response = await axios.post(
+        `http://localhost:3000/api/posts/delete/${id}`
+      );
+      if (response.status === 200) {
+        console.log("After delete response", response);
+        $posts = $posts.filter(post => post.id !== id);
+        $projects = $posts.filter(post => post.category === "Projects");
+        $skills = $posts.filter(post => post.category === "Skills");
+        $education = $posts.filter(post => post.category === "Education");
+        $blogs = $posts.filter(post => post.category === "Blogs");
+      }
+    } else {
+      console.log("You are not authorized to delete post");
+    }
+  };
 </script>
 
 <style>
@@ -50,10 +78,10 @@
               <p>Tags: {item.tags}</p>
               <p>Posted on: {item.posted_date}</p>
               <p>
-                <button on:click={() => dispatch('deletePost', item.id)}>
-                  Delete?
-                </button>
-                <button>Update</button>
+                {#if $user && $user.adminStatus === 1}
+                  <button on:click={() => deletePost(item.id)}>Delete?</button>
+                  <button>Update</button>
+                {/if}
               </p>
             </div>
           {/each}

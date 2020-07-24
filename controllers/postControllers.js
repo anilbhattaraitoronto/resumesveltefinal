@@ -15,7 +15,7 @@ exports.createPost = (req, res) => {
 
   res.status(200).json(newpost);
   //   } else {
-  //     res.status(400).json({ message: "You are not authorized to add post." });
+  // res.status(400).json({ message: "You are not authorized to add post." });
   //   }
 };
 

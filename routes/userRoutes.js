@@ -20,11 +20,12 @@ const {
 );
 
 router.post("/signup", signup);
-router.post("/activate/:token", activateAccount);
+router.get("/activate/:token", activateAccount);
 router.post("/login", login);
-router.get("/logout", logout);
-router.get("/delete/:email", deleteUser);
+router.post("/logout", logout);
+
 router.post("/resetpassword", resetPasswordRequest);
+router.get("/delete/:email", deleteUser);
 router.get("/resetpassword/:token", getResetPasswordForm);
 router.post("/resetpassword/:token", confirmResetPassword);
 //profile routes

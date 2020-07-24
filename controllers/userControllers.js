@@ -1,4 +1,5 @@
 const sqlite3 = require("better-sqlite3");
+const DB = new sqlite3("./resumedb.sqlite");
 const bcrypt = require("bcrypt");
 const saltRounds = 10;
 const salt = bcrypt.genSaltSync(saltRounds);
@@ -7,15 +8,16 @@ const { emailConfig, emailsecret } = require("../secrets");
 const { sendAccountActivationEmail, sendPassportResetEmail } = require(
   "./sendMail",
 );
+process.on("exit", () => {
+  DB.close();
+});
 
 exports.signup = (req, res) => {
   const { email, password, confirmPassword } = req.body;
   if (password === confirmPassword) {
-    const DB = new sqlite3("./resumedb.sqlite");
     const getUserStmt = DB.prepare(`SELECT * FROM users WHERE email = ?;`);
     const user = getUserStmt.get(email);
     if (!user) {
-      DB.close();
       //send email
       sendAccountActivationEmail(emailConfig, email, password);
       //send message
@@ -26,18 +28,17 @@ exports.signup = (req, res) => {
         },
       );
     } else {
-      res.status(400).json(
+      res.status(200).json(
         {
-          message:
-            "The user already exists. Please login. If you forget your password ask for a reset.",
+          message: "UserExistsError",
         },
       );
+      console.log("user already exists");
     }
   } else {
     res.status(400).json(
       {
-        messate:
-          "Passwords and confirm password do not match. Please try again.",
+        message: "PasswordsMisMatch",
       },
     );
   }
@@ -54,21 +55,14 @@ exports.activateAccount = (req, res) => {
       } else {
         const { email, password } = decodedToken;
         const hashedPassword = bcrypt.hashSync(password, salt);
-        const DB = new sqlite3("./resumedb.sqlite");
+
         const addUserStmt = DB.prepare(
           `INSERT INTO users (email, password) VALUES(?,?);`,
         );
-        addUserStmt.run(email, hashedPassword);
-        req.session.isLoggedIn = true;
-        req.session.email = email;
+        addUserStmt.run(email, hashedPassword).lastInsertRowid;
 
-        DB.close();
-        res.status(200).json(
-          {
-            message:
-              `Welcome! Thank you for activating your account, ${email}. You are now logged in.`,
-          },
-        );
+        res.status(200);
+        res.send(`<h3>Your account is activated, ${email}</h3>`);
       }
     });
   } else {
@@ -78,63 +72,52 @@ exports.activateAccount = (req, res) => {
 
 exports.login = (req, res) => {
   const { email, password } = req.body;
-  if (!req.session.isLoggedIn || req.session.email !== email) {
-    if (email && password) {
-      const DB = new sqlite3("./resumedb.sqlite");
-      const getUserStmt = DB.prepare(`SELECT * FROM users WHERE email = ?;`);
-      const user = getUserStmt.get(email);
-      if (user) {
-        const hashedPassword = user.password;
-        bcrypt.compare(password, hashedPassword, (err, result) => {
-          if (result === true) {
-            req.session.isLoggedIn = true;
-            req.session.email = email;
-            req.session.is_admin = user.is_admin;
-            DB.close();
-            res.status(200).json(
-              { message: `Welcome, ${email}. You are now logged in.` },
-            );
-          } else {
-            res.status(400).json(
-              { message: "Passwords do not match. Please try again." },
-            );
-          }
+
+  const getUserStmt = DB.prepare(`SELECT * FROM users WHERE email = ?;`);
+  const user = getUserStmt.get(email);
+  if (user) {
+    bcrypt.compare(password, user.password, (err, result) => {
+      if (err) {
+        res.status(401).json({ message: "Invalid credentials" });
+      } else if (result === true) {
+        req.session.user = user;
+        req.session.isLoggedIn = true;
+        res.status(200).json({
+          loggedInUser: {
+            email: req.session.user.email,
+            adminStatus: req.session.user.is_admin,
+            isLoggedIn: req.session.isLoggedIn,
+          },
         });
       } else {
-        res.status(400).json(
-          { message: "The user does not exist. Please signup first." },
-        );
+        res.status(500).json({ message: "Problem logging in user" });
       }
-    } else {
-      res.status(400).json({ message: "Both email and password are required" });
-    }
+    });
   } else {
-    res.status(400).json(
-      { message: "You or someone else is aready logged in in this browser!" },
-    );
+    res.status(401).json({ message: "UserDoesNotExist" });
   }
 };
 
 exports.logout = (req, res) => {
-  if (req.session.isLoggedIn && req.session.email) {
-    req.session.destroy();
-    res.status(200).json(
-      { message: `You are logged out. Bye` },
-    );
-  } else {
-    res.status(400).json({ message: "You are not logged in." });
-  }
+  //   if (req.session.isLoggedIn === true) {
+  req.session.destroy();
+  res.status(200).json(
+    { message: `You are logged out. Bye` },
+  );
+  //   } else {
+  // res.status(400).json({ message: "You are not logged in." });
+  //   }
 };
 
 exports.deleteUser = (req, res) => {
   if (req.session.isLoggedIn && req.session.email) {
     const email = req.params.email;
-    const DB = new sqlite3("./resumedb.sqlite");
+
     DB.pragma("foreign_keys=ON");
     const deleteUserStmt = DB.prepare(`DELETE FROM users WHERE email = ?;`);
     deleteUserStmt.run(email);
     req.session.destroy();
-    DB.close();
+
     res.status(200).json(
       {
         message:
@@ -155,7 +138,7 @@ exports.deleteUser = (req, res) => {
 
 exports.resetPasswordRequest = (req, res) => {
   const email = req.body.email;
-  const DB = new sqlite3("./resumedb.sqlite");
+
   const getUserStmt = DB.prepare(`SELECT * FROM users WHERE email = ?;`);
   const user = getUserStmt.get(email);
   if (!user) {
@@ -187,7 +170,7 @@ exports.getResetPasswordForm = (req, res) => {
         res.status(400).json({ message: "The token is broken or expired" });
       } else {
         const { email } = decodedToken;
-        const DB = new sqlite3("./resumedb.sqlite");
+
         const getUserStmt = DB.prepare(`SELECT * FROM users WHERE email = ?;`);
         const user = getUserStmt.get(email);
         if (!user) {
@@ -229,7 +212,7 @@ exports.confirmResetPassword = (req, res) => {
           );
         } else {
           const { email } = decodedToken;
-          const DB = new sqlite3("./resumedb.sqlite");
+
           const getUserStmt = DB.prepare(`SELECT * FROM users WHERE email =?;`);
           const user = getUserStmt.get(email);
           if (user) {
@@ -238,7 +221,7 @@ exports.confirmResetPassword = (req, res) => {
               `UPDATE users SET password = ? WHERE email =?;`,
             );
             updateUserStmt.run(hashedPassword, email);
-            DB.close();
+
             res.status(200).json(
               {
                 message:
@@ -246,7 +229,6 @@ exports.confirmResetPassword = (req, res) => {
               },
             );
           } else {
-            DB.close();
             res.status(400).json(
               {
                 message:
@@ -271,7 +253,7 @@ exports.createProfile = (req, res) => {
     const email = req.session.email;
     const { bio } = req.body;
     //check if profile with that email exists
-    const DB = new sqlite3("./resumedb.sqlite");
+
     const getProfileStmt = DB.prepare(
       `SELECT * FROM profiles WHERE userEmail = ?;`,
     );
@@ -281,7 +263,7 @@ exports.createProfile = (req, res) => {
         `INSERT INTO profiles (userEmail, bio) VALUES(?,?);`,
       );
       createProfileStmt.run(email, bio);
-      DB.close();
+
       res.status(200).json(
         { message: `Thank you for creating your profile, ${email}` },
       );
@@ -300,13 +282,12 @@ exports.createProfile = (req, res) => {
 exports.getUserProfile = (req, res) => {
   if (req.session.isLoggedIn && req.session.email) {
     const email = req.session.email;
-    const DB = new sqlite3("./resumedb.sqlite");
+
     const getProfileStmt = DB.prepare(
       `SELECT * FROM profiles WHERE userEmail = ?;`,
     );
     const profile = getProfileStmt.get(email);
     if (profile) {
-      DB.close();
       res.status(200).json(profile);
     } else {
       res.status(400).json({ message: "Profile does not exist. " });
@@ -320,14 +301,13 @@ exports.getUserProfile = (req, res) => {
 
 exports.updateProfile = (req, res) => {
   if (req.session.isLoggedIn && req.session.email) {
-    const DB = new sqlite3("./resumedb.sqlite");
     const email = req.session.email;
     const bio = req.body.bio;
     const updateProfileStmt = DB.prepare(
       `UPDATE profiles SET bio = ? WHERE userEmail = ?`,
     );
     updateProfileStmt.run(bio, email);
-    DB.close();
+
     res.status(200).json(
       { message: `You have successfully updated your bio, ${email}` },
     );
@@ -341,12 +321,12 @@ exports.updateProfile = (req, res) => {
 exports.deleteProfile = (req, res) => {
   if (req.session.isLoggedIn && req.session.email) {
     const email = req.session.email;
-    const DB = new sqlite3("./resumedb.sqlite");
+
     const deleteProfileStmt = DB.prepare(
       `DELETE FROM profiles WHERE userEmail = ?;`,
     );
     deleteProfileStmt.run(email);
-    DB.close();
+
     res.status(200).json(
       {
         message:
