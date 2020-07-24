@@ -29,7 +29,7 @@
     education
   } from "./stores/postStore.js";
 
-  $: console.log("useris ", user);
+  $: console.log("useris ", $user);
   //generate tabs for header
 
   //get posts from backend
