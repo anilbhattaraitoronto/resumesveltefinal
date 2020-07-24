@@ -18,7 +18,7 @@
   const deletePost = async id => {
     if ($user && $user.adminStatus === 1) {
       const response = await axios.post(
-        `https://localhost:3000/api/posts/delete/${id}`
+        `https://abresume.playingpets.com/api/posts/delete/${id}`
       );
       if (response.status === 200) {
         console.log("After delete response", response);

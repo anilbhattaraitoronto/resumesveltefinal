@@ -11,7 +11,7 @@
   async function signup() {
     if ($user === null) {
       const response = await axios.post(
-        "http://localhost:3000/api/users/signup",
+        "https://abresume.playingpets.com/api/users/signup",
         {
           email,
           password,

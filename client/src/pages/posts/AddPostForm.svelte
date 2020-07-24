@@ -24,7 +24,7 @@
         content: content
       };
       const response = await axios.post(
-        "http://localhost:3000/api/posts/createpost",
+        "https://abresume.playingpets.com/api/posts/createpost",
         post
       );
 

@@ -45,7 +45,7 @@
   //make api call to get all posts
 
   onMount(async () => {
-    const { data } = await axios.get("https://localhost:3000/api/posts");
+    const { data } = await axios.get("https://abresume.playingpets.com/api/posts");
     if (data) {
       $posts = data;
       $projects = $posts.filter(post => post.category === "Projects");

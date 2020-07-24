@@ -7,7 +7,7 @@
     if ($user !== null) {
       console.log("Proceed to logout");
       console.log("User to logout", $user);
-      await axios.post("http://localhost:3000/api/users/logout");
+      await axios.post("https://abresume.playingpets.com/api/users/logout");
       $user = null;
       console.log("user logged out", $user);
       push("/allposts");
